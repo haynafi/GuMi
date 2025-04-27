@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 27, 2025 at 12:29 PM
+-- Generation Time: Apr 27, 2025 at 01:50 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -244,7 +244,7 @@ CREATE TABLE `sessions` (
 --
 
 INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, `last_activity`) VALUES
-('4bV4tSxRX99z1l2PzMsMGJr9VMlmaEBMVYjZhk56', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiMTNhanRBM0NHeFNsSkpvYzVIRWsyQWREWmNWZ0pBakFPQmRCU0hOOCI7czozOiJ1cmwiO2E6MDp7fXM6OToiX3ByZXZpb3VzIjthOjE6e3M6MzoidXJsIjtzOjMwOiJodHRwOi8vMTI3LjAuMC4xOjgwMDAvdGVtcGxhdGUiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX1zOjUwOiJsb2dpbl93ZWJfNTliYTM2YWRkYzJiMmY5NDAxNTgwZjAxNGM3ZjU4ZWE0ZTMwOTg5ZCI7aToxO30=', 1745749032);
+('4bV4tSxRX99z1l2PzMsMGJr9VMlmaEBMVYjZhk56', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36', 'YTo1OntzOjY6Il90b2tlbiI7czo0MDoiMTNhanRBM0NHeFNsSkpvYzVIRWsyQWREWmNWZ0pBakFPQmRCU0hOOCI7czozOiJ1cmwiO2E6MDp7fXM6OToiX3ByZXZpb3VzIjthOjE6e3M6MzoidXJsIjtzOjMwOiJodHRwOi8vMTI3LjAuMC4xOjgwMDAvdGVtcGxhdGUiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX1zOjUwOiJsb2dpbl93ZWJfNTliYTM2YWRkYzJiMmY5NDAxNTgwZjAxNGM3ZjU4ZWE0ZTMwOTg5ZCI7aToxO30=', 1745754461);
 
 -- --------------------------------------------------------
 
@@ -260,18 +260,18 @@ CREATE TABLE `transaksi` (
   `jumlah` int(11) NOT NULL,
   `tanggal_transaksi` datetime NOT NULL DEFAULT current_timestamp(),
   `return_date` date DEFAULT NULL,
-  `keterangan` text DEFAULT NULL
+  `keterangan` text DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `transaksi`
 --
 
-INSERT INTO `transaksi` (`id_transaksi`, `id_barang`, `id_mitra`, `jenis_transaksi`, `jumlah`, `tanggal_transaksi`, `return_date`, `keterangan`) VALUES
-(1, 1, 1, 'KELUAR', 2, '2025-04-25 10:00:00', '2025-04-30', 'Peminjaman proyektor'),
-(2, 2, 2, 'KELUAR', 10, '2025-04-26 14:00:00', '2025-04-29', 'Penggunaan kertas untuk laporan'),
-(3, 1, 1, 'MASUK', 2, '2025-04-27 09:00:00', NULL, 'Pengembalian proyektor'),
-(4, 1, 1, 'KELUAR', 1, '2025-04-27 00:00:00', '2025-04-30', NULL);
+INSERT INTO `transaksi` (`id_transaksi`, `id_barang`, `id_mitra`, `jenis_transaksi`, `jumlah`, `tanggal_transaksi`, `return_date`, `keterangan`, `updated_at`) VALUES
+(1, 1, 1, 'KELUAR', 2, '2025-04-25 10:00:00', '2025-04-30', 'Peminjaman Proyektor', '2025-04-27 02:00:00'),
+(2, 2, 2, 'KELUAR', 10, '2025-04-26 14:00:00', '2025-04-29', 'Penggunaan kertas untuk laporan', NULL),
+(3, 1, 1, 'KELUAR', 1, '2025-04-27 00:00:00', '2025-04-30', NULL, NULL);
 
 -- --------------------------------------------------------
 

@@ -10,4 +10,10 @@ export default defineConfig({
         }),
         react(),
     ],
+    resolve: {
+        extensions: ['.js', '.jsx', '.ts', '.tsx'], // Add .jsx to the list of resolved extensions
+        alias: {
+          '@': '/resources/js',
+        },
+      },
 });

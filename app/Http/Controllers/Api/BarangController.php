@@ -8,15 +8,16 @@ use Illuminate\Http\Request;
 
 class BarangController extends Controller
 {
-    // Fetch paginated barangs with kategori
     public function index(Request $request)
     {
-        $perPage = $request->query('per_page', 5); // Default to 5 items per page
-        $barangs = Barang::with('kategori')->paginate($perPage);
+        $perPage = $request->query('per_page', 5);
+        $barangs = Barang::with('kategori')
+            ->orderBy('id_barang', 'desc')
+            ->paginate($perPage);
+
         return response()->json($barangs);
     }
 
-    // Store a new barang
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -30,6 +31,32 @@ class BarangController extends Controller
         ]);
 
         $barang = Barang::create($validated);
-        return response()->json($barang->load('kategori'), 201);
+
+        return response()->json([
+            'message' => 'Barang created successfully',
+            'data' => $barang,
+        ], 201);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $barang = Barang::findOrFail($id);
+
+        $validated = $request->validate([
+            'id_kategori' => 'sometimes|required|exists:kategori,id_kategori',
+            'nama_barang' => 'sometimes|required|string|max:255',
+            'satuan' => 'sometimes|required|string|max:50',
+            'stok_awal' => 'sometimes|required|integer|min:0',
+            'stok_akhir' => 'sometimes|required|integer|min:0',
+            'keterangan' => 'nullable|string',
+            'expired_date' => 'nullable|date',
+        ]);
+
+        $barang->update($validated);
+
+        return response()->json([
+            'message' => 'Barang updated successfully',
+            'data' => $barang,
+        ], 200);
     }
 }

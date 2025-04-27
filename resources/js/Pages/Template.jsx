@@ -23,6 +23,7 @@ import {
   Package,
   Edit,
   Trash,
+  ArrowLeft,
 } from "lucide-react"
 
 export default function Template() {
@@ -32,11 +33,14 @@ export default function Template() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [barangs, setBarangs] = useState([])
   const [mitras, setMitras] = useState([])
+  const [transaksis, setTransaksis] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [mitraPage, setMitraPage] = useState(1)
   const [mitraTotalPages, setMitraTotalPages] = useState(1)
+  const [transaksiPage, setTransaksiPage] = useState(1)
+  const [transaksiTotalPages, setTransaksiTotalPages] = useState(1)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isTransaksiModalOpen, setIsTransaksiModalOpen] = useState(false)
   const [isMitraModalOpen, setIsMitraModalOpen] = useState(false)
@@ -48,17 +52,18 @@ export default function Template() {
     stok_akhir: "",
     keterangan: "",
     expired_date: "",
-    id_mitra: "", // Add id_mitra field
+    id_mitra: "",
   })
   const [transaksiData, setTransaksiData] = useState({
+    id_transaksi: null,
     id_mitra: "",
     id_barang: "",
-    jenis_transaksi: "KELUAR", // Default to "KELUAR" for borrowing
+    jenis_transaksi: "KELUAR",
     jumlah: 1,
     tanggal_transaksi: new Date().toISOString().split("T")[0],
     return_date: "",
     keterangan: "",
-  });
+  })
   const [mitraData, setMitraData] = useState({
     id_mitra: null,
     nama: "",
@@ -69,6 +74,7 @@ export default function Template() {
     at: "",
   })
   const [selectedBarang, setSelectedBarang] = useState(null)
+  const [selectedTransaksi, setSelectedTransaksi] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [dateFilter, setDateFilter] = useState("All time")
   const [isDateFilterOpen, setIsDateFilterOpen] = useState(false)
@@ -84,7 +90,6 @@ export default function Template() {
     try {
       setLoading(true)
       const response = await axios.get(`http://127.0.0.1:8000/api/barangs?page=${page}&per_page=5`)
-      console.log("Barangs response:", response.data) // Debug log
       setBarangs(response.data.data || [])
       setCurrentPage(response.data.current_page || 1)
       setTotalPages(response.data.last_page || 1)
@@ -100,7 +105,6 @@ export default function Template() {
     try {
       setLoading(true)
       const response = await axios.get(`http://127.0.0.1:8000/api/mitras?page=${page}&per_page=5`)
-      console.log("Mitras response:", response.data) // Debug log
       setMitras(response.data.data || [])
       setMitraPage(response.data.current_page || 1)
       setMitraTotalPages(response.data.last_page || 1)
@@ -112,17 +116,30 @@ export default function Template() {
     }
   }
 
-  useEffect(() => {
-    // Fetch both barangs and mitras on initial load
-    const fetchInitialData = async () => {
-      await fetchBarangs(currentPage);
-      await fetchMitras(mitraPage);
-    };
-  
-    fetchInitialData();
-  }, [currentPage, mitraPage, activeMenu]);
+  const fetchTransaksis = async (page = 1) => {
+    try {
+      setLoading(true)
+      const response = await axios.get(`http://127.0.0.1:8000/api/transaksis?page=${page}&per_page=5`)
+      setTransaksis(response.data.data || [])
+      setTransaksiPage(response.data.current_page || 1)
+      setTransaksiTotalPages(response.data.last_page || 1)
+      setLoading(false)
+    } catch (error) {
+      console.error("Error fetching transaksis:", error)
+      setTransaksis([])
+      setLoading(false)
+    }
+  }
 
-  // Close date filter dropdown when clicking outside
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      await fetchBarangs(currentPage)
+      await fetchMitras(mitraPage)
+      await fetchTransaksis(transaksiPage)
+    }
+    fetchInitialData()
+  }, [currentPage, mitraPage, transaksiPage, activeMenu])
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dateFilterRef.current && !dateFilterRef.current.contains(event.target)) {
@@ -137,7 +154,7 @@ export default function Template() {
 
   const toggleSelectAll = (e, data) => {
     if (e.target.checked) {
-      setSelectedRows(data.map((item) => item.id_barang || item.id_mitra))
+      setSelectedRows(data.map((item) => item.id_barang || item.id_mitra || item.id_transaksi))
     } else {
       setSelectedRows([])
     }
@@ -155,7 +172,6 @@ export default function Template() {
     setIsSidebarOpen(!isSidebarOpen)
   }
 
-  // Add Barang Modal
   const openAddModal = () => {
     setFormData({
       id_kategori: activeTab === "SarPra" ? 1 : activeTab === "BarBisKai" ? 2 : 3,
@@ -165,10 +181,10 @@ export default function Template() {
       stok_akhir: "",
       keterangan: "",
       expired_date: "",
-      id_mitra: "", // Reset id_mitra
-    });
-    setIsAddModalOpen(true);
-  };
+      id_mitra: "",
+    })
+    setIsAddModalOpen(true)
+  }
 
   const closeAddModal = () => {
     setIsAddModalOpen(false)
@@ -180,52 +196,64 @@ export default function Template() {
   }
 
   const handleAddSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
-      // Step 1: Create the barang record
-      const barangResponse = await axios.post("http://127.0.0.1:8000/api/barangs", formData);
-      const newBarang = barangResponse.data.data; // Assuming the API returns the created barang with its ID
-  
-      // Step 2: Create a transaksi record to log the mitra association
-      const transaksiPayload = {
-        id_barang: newBarang.id_barang, // Use the ID of the newly created barang
-        id_mitra: formData.id_mitra, // Selected mitra from the form
-        jenis_transaksi: "MASUK", // Assuming this is an incoming item (adjust as needed)
-        jumlah: formData.stok_akhir, // Use stok_akhir as the quantity
-        tanggal_transaksi: new Date().toISOString().split("T")[0], // Current date
-        return_date: formData.expired_date || null, // Use expired_date as return_date if applicable
-        keterangan: formData.keterangan || "Added new item", // Use description or default
-      };
-  
-      await axios.post("http://127.0.0.1:8000/api/transaksis", transaksiPayload);
-  
-      // Step 3: Close the modal and refresh the data
-      closeAddModal();
-      fetchBarangs(currentPage);
-    } catch (error) {
-      console.error("Error adding barang and transaksi:", error);
-      alert("Failed to add data. Please try again.");
-    }
-  };
+      const barangResponse = await axios.post("http://127.0.0.1:8000/api/barangs", formData)
+      const newBarang = barangResponse.data.data
 
-  // Transaksi Modal
-  const openTransaksiModal = (barang) => {
-    setSelectedBarang(barang);
-    setTransaksiData({
-      id_mitra: "",
-      id_barang: barang.id_barang,
-      jenis_transaksi: "KELUAR", // Default to "KELUAR" for borrowing
-      jumlah: 1,
-      tanggal_transaksi: new Date().toISOString().split("T")[0],
-      return_date: "",
-      keterangan: "",
-    });
-    setIsTransaksiModalOpen(true);
-  };
+      const transaksiPayload = {
+        id_barang: newBarang.id_barang,
+        id_mitra: formData.id_mitra,
+        jenis_transaksi: "MASUK",
+        jumlah: formData.stok_akhir,
+        tanggal_transaksi: new Date().toISOString().split("T")[0],
+        return_date: formData.expired_date || null,
+        keterangan: formData.keterangan || "Added new item",
+      }
+
+      await axios.post("http://127.0.0.1:8000/api/transaksis", transaksiPayload)
+
+      closeAddModal()
+      fetchBarangs(currentPage)
+    } catch (error) {
+      console.error("Error adding barang and transaksi:", error)
+      alert("Failed to add data. Please try again.")
+    }
+  }
+
+  const openTransaksiModal = (barang = null, transaksi = null, jenis_transaksi) => {
+    if (barang) {
+      setSelectedBarang(barang)
+      setTransaksiData({
+        id_transaksi: null,
+        id_mitra: "",
+        id_barang: barang.id_barang,
+        jenis_transaksi: jenis_transaksi,
+        jumlah: 1,
+        tanggal_transaksi: new Date().toISOString().split("T")[0],
+        return_date: "",
+        keterangan: "",
+      })
+    } else if (transaksi) {
+      setSelectedTransaksi(transaksi)
+      setTransaksiData({
+        id_transaksi: transaksi.id_transaksi,
+        id_mitra: transaksi.id_mitra,
+        id_barang: transaksi.id_barang,
+        jenis_transaksi: jenis_transaksi,
+        jumlah: transaksi.jumlah,
+        tanggal_transaksi: transaksi.tanggal_transaksi,
+        return_date: transaksi.return_date || "",
+        keterangan: transaksi.keterangan,
+      })
+    }
+    setIsTransaksiModalOpen(true)
+  }
 
   const closeTransaksiModal = () => {
     setIsTransaksiModalOpen(false)
     setSelectedBarang(null)
+    setSelectedTransaksi(null)
   }
 
   const handleTransaksiInputChange = (e) => {
@@ -234,21 +262,50 @@ export default function Template() {
   }
 
   const handleTransaksiSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
-      console.log("Submitting transaksiData:", transaksiData); // Debug log
-      await axios.post("http://127.0.0.1:8000/api/transaksis", transaksiData);
-      closeTransaksiModal();
-      fetchBarangs(currentPage);
+      if (transaksiData.jenis_transaksi === "KELUAR") {
+        if (transaksiData.id_transaksi) {
+          // Editing an existing transaction
+          // Fetch the original transaction to get the old jumlah
+          const originalTransaksi = transaksis.find(t => t.id_transaksi === transaksiData.id_transaksi)
+          const oldJumlah = originalTransaksi.jumlah
+  
+          // Update the transaction
+          await axios.put(`http://127.0.0.1:8000/api/transaksis/${transaksiData.id_transaksi}`, transaksiData)
+  
+          // Adjust stock: Add back the old jumlah, then subtract the new jumlah
+          const barangResponse = await axios.get(`http://127.0.0.1:8000/api/barangs/${transaksiData.id_barang}`)
+          const barang = barangResponse.data
+          const newStokAkhir = barang.stok_akhir + oldJumlah - transaksiData.jumlah
+          if (newStokAkhir < 0) {
+            throw new Error("Insufficient stock available after editing.")
+          }
+          await axios.put(`http://127.0.0.1:8000/api/barangs/${transaksiData.id_barang}`, {
+            ...barang,
+            stok_akhir: newStokAkhir,
+          })
+        } else {
+          // Create new transaction (Borrow)
+          await axios.post("http://127.0.0.1:8000/api/transaksis", transaksiData)
+        }
+      } else if (transaksiData.jenis_transaksi === "MASUK") {
+        await axios.put(`http://127.0.0.1:8000/api/transaksis/${transaksiData.id_transaksi}`, {
+          ...transaksiData,
+          return_date: transaksiData.return_date || null,
+          updated_at: new Date().toISOString(),
+        })
+      }
+      closeTransaksiModal()
+      fetchTransaksis(transaksiPage)
+      fetchBarangs(currentPage)
     } catch (error) {
-      console.error("Error adding transaksi:", error);
-      // Display specific validation error if available
-      const errorMessage = error.response?.data?.message || "Failed to add transaction. Please try again.";
-      alert(errorMessage);
+      console.error("Error processing transaksi:", error)
+      const errorMessage = error.response?.data?.message || "Failed to process transaction. Please try again."
+      alert(errorMessage)
     }
-  };
+  }
 
-  // Mitra Modal
   const openMitraModal = (mitra = null) => {
     if (mitra) {
       setMitraData({
@@ -320,11 +377,25 @@ export default function Template() {
     }
   }
 
+  const handleDeleteBarang = async (id) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      try {
+        await axios.delete(`http://127.0.0.1:8000/api/barangs/${id}`)
+        fetchBarangs(currentPage)
+      } catch (error) {
+        console.error("Error deleting barang:", error)
+        alert("Failed to delete item. Please try again.")
+      }
+    }
+  }
+
   const handlePageChange = (page, type = "barang") => {
     if (type === "barang" && page >= 1 && page <= totalPages) {
       setCurrentPage(page)
     } else if (type === "mitra" && page >= 1 && page <= mitraTotalPages) {
       setMitraPage(page)
+    } else if (type === "transaksi" && page >= 1 && page <= transaksiTotalPages) {
+      setTransaksiPage(page)
     }
   }
 
@@ -334,7 +405,7 @@ export default function Template() {
 
   const handleDateFilterChange = (filter) => {
     setDateFilter(filter)
-    setIsDateFilterOpen(false) // Close dropdown after selection
+    setIsDateFilterOpen(false)
   }
 
   const toggleDateFilter = () => {
@@ -344,7 +415,6 @@ export default function Template() {
   const filterData = (data, type) => {
     let filtered = [...data]
 
-    // Apply search filter
     if (searchQuery) {
       if (type === "barang") {
         filtered = filtered.filter(item =>
@@ -356,10 +426,15 @@ export default function Template() {
           item.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
           item.perusahaan?.toLowerCase().includes(searchQuery.toLowerCase())
         )
+      } else if (type === "transaksi") {
+        filtered = filtered.filter(item =>
+          item.mitra?.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.barang?.nama_barang?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          item.keterangan?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
       }
     }
 
-    // Apply date filter
     const now = new Date()
     if (dateFilter !== "All time") {
       let cutoffDate = new Date()
@@ -370,8 +445,8 @@ export default function Template() {
       }
 
       filtered = filtered.filter(item => {
-        const dateStr = type === "barang" ? item.expired_date : item.at
-        if (!dateStr) return true // Include items with no date
+        const dateStr = type === "barang" ? item.expired_date : type === "mitra" ? item.at : item.tanggal_transaksi
+        if (!dateStr) return true
         const date = new Date(dateStr)
         return !isNaN(date.getTime()) && date >= cutoffDate
       })
@@ -382,32 +457,41 @@ export default function Template() {
 
   const currentData = activeMenu === "Mitra"
     ? mitras
-    : activeTab === "SarPra"
-    ? barangs.filter(item => item.kategori?.nama_kategori === "Sarana Prasarana")
-    : activeTab === "BarBisKai"
-    ? barangs.filter(item => item.kategori?.nama_kategori === "Barang Habis Pakai")
-    : barangs.filter(item => item.kategori?.nama_kategori === "Dapur Umum")
+    : activeMenu === "Transaksi"
+      ? transaksis.filter(item => item.jenis_transaksi === "KELUAR")
+      : activeTab === "SarPra"
+        ? barangs.filter(item => item.kategori?.nama_kategori === "Sarana Prasarana")
+        : activeTab === "BarBisKai"
+          ? barangs.filter(item => item.kategori?.nama_kategori === "Barang Habis Pakai")
+          : barangs.filter(item => item.kategori?.nama_kategori === "Dapur Umum")
 
   const filteredData = filterData(
     currentData,
-    activeMenu === "Mitra" ? "mitra" : "barang"
+    activeMenu === "Mitra" ? "mitra" : activeMenu === "Transaksi" ? "transaksi" : "barang"
   )
-  console.log("Current Data:", currentData) // Debug: See data before filtering
-  console.log("Filtered Data:", filteredData) // Debug: See data after filtering
 
   const sectionTitle = activeMenu === "Mitra"
     ? "Mitra"
-    : activeTab === "SarPra"
-    ? "Sarana Prasarana"
-    : activeTab === "BarBisKai"
-    ? "Barang Habis Pakai"
-    : "Dapur Umum"
+    : activeMenu === "Transaksi"
+      ? "Transaksi"
+      : activeTab === "SarPra"
+        ? "Sarana Prasarana"
+        : activeTab === "BarBisKai"
+          ? "Barang Habis Pakai"
+          : "Dapur Umum"
 
   const getStatus = (stokAwal, stokAkhir) => {
     if (stokAwal === undefined || stokAkhir === undefined) return "Pending"
     if (stokAkhir === stokAwal) return "Sent"
     if (stokAkhir < stokAwal) return "Overdue"
     return "Pending"
+  }
+
+  const isOverdue = (maxDate, actualReturnDate) => {
+    if (!maxDate || !actualReturnDate) return false
+    const max = new Date(maxDate)
+    const actual = new Date(actualReturnDate)
+    return actual > max
   }
 
   if (loading) {
@@ -452,9 +536,8 @@ export default function Template() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <div
-          className={`fixed inset-y-0 left-0 w-64 bg-white border-r transform ${
-            isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } md:transform-none md:static md:block transition-transform duration-300 ease-in-out z-50`}
+          className={`fixed inset-y-0 left-0 w-64 bg-white border-r transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            } md:transform-none md:static md:block transition-transform duration-300 ease-in-out z-50`}
         >
           <div className="p-6 border-b">
             <div className="flex items-center space-x-3">
@@ -473,9 +556,8 @@ export default function Template() {
                 <li>
                   <a
                     href="#"
-                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
-                      activeMenu === "Dashboard" ? "bg-indigo-50 text-gray-700" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center px-3 py-2 text-sm rounded-md ${activeMenu === "Dashboard" ? "bg-indigo-50 text-gray-700" : "text-gray-700 hover:bg-gray-100"
+                      }`}
                     onClick={() => {
                       setActiveMenu("Dashboard")
                       setActiveTab("SarPra")
@@ -489,9 +571,8 @@ export default function Template() {
                 <li>
                   <a
                     href="#"
-                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
-                      activeMenu === "Mitra" ? "bg-indigo-50 text-gray-700" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center px-3 py-2 text-sm rounded-md ${activeMenu === "Mitra" ? "bg-indigo-50 text-gray-700" : "text-gray-700 hover:bg-gray-100"
+                      }`}
                     onClick={() => {
                       setActiveMenu("Mitra")
                       setIsSidebarOpen(false)
@@ -504,16 +585,15 @@ export default function Template() {
                 <li>
                   <a
                     href="#"
-                    className={`flex items-center px-3 py-2 text-sm rounded-md ${
-                      activeMenu === "Clients" ? "bg-indigo-50 text-gray-700" : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center px-3 py-2 text-sm rounded-md ${activeMenu === "Transaksi" ? "bg-indigo-50 text-gray-700" : "text-gray-700 hover:bg-gray-100"
+                      }`}
                     onClick={() => {
-                      setActiveMenu("Clients")
+                      setActiveMenu("Transaksi")
                       setIsSidebarOpen(false)
                     }}
                   >
                     <Users size={18} className="mr-3 text-gray-500" />
-                    Clients
+                    Transaksi
                   </a>
                 </li>
               </ul>
@@ -530,30 +610,27 @@ export default function Template() {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Tabs Navigation (only for Dashboard menu) */}
+          {/* Tabs Navigation (for Dashboard menu only) */}
           {activeMenu === "Dashboard" && (
             <div className="bg-white border-b">
               <div className="flex flex-col md:flex-row md:items-center md:space-x-8 px-6 py-4">
                 <button
-                  className={`pb-2 text-sm font-medium ${
-                    activeTab === "SarPra" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
-                  }`}
+                  className={`pb-2 text-sm font-medium ${activeTab === "SarPra" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
+                    }`}
                   onClick={() => setActiveTab("SarPra")}
                 >
                   Sarana Prasarana
                 </button>
                 <button
-                  className={`pb-2 text-sm font-medium ${
-                    activeTab === "BarBisKai" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
-                  }`}
+                  className={`pb-2 text-sm font-medium ${activeTab === "BarBisKai" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
+                    }`}
                   onClick={() => setActiveTab("BarBisKai")}
                 >
                   Barang Habis Pakai
                 </button>
                 <button
-                  className={`pb-2 text-sm font-medium ${
-                    activeTab === "DaMum" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
-                  }`}
+                  className={`pb-2 text-sm font-medium ${activeTab === "DaMum" ? "text-blue-600 border-b-2 border-blue-600" : "text-gray-500"
+                    }`}
                   onClick={() => setActiveTab("DaMum")}
                 >
                   Dapur Umum
@@ -614,18 +691,15 @@ export default function Template() {
             <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
               <div className="flex justify-between items-center p-4 border-b">
                 <h2 className="text-lg font-medium">{sectionTitle}</h2>
-                {activeMenu === "Dashboard" && (
+                {(activeMenu === "Dashboard" || activeMenu === "Mitra" || activeMenu === "Transaksi") && (
                   <button
-                    onClick={openAddModal}
-                    className="flex items-center space-x-1 px-3 py-2 border rounded-md bg-blue-600 text-white text-sm"
-                  >
-                    <Plus size={16} />
-                    <span>Add Data</span>
-                  </button>
-                )}
-                {activeMenu === "Mitra" && (
-                  <button
-                    onClick={() => openMitraModal()}
+                    onClick={
+                      activeMenu === "Dashboard"
+                        ? openAddModal
+                        : activeMenu === "Mitra"
+                          ? () => openMitraModal()
+                          : () => openTransaksiModal()
+                    }
                     className="flex items-center space-x-1 px-3 py-2 border rounded-md bg-blue-600 text-white text-sm"
                   >
                     <Plus size={16} />
@@ -658,6 +732,20 @@ export default function Template() {
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Date</th>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Action</th>
                         </>
+                      ) : activeMenu === "Transaksi" ? (
+                        <>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">No.</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ID</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Mitra</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Barang</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Jenis Transaksi</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Jumlah</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Tanggal Transaksi</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Pengembalian</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Max Date</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Ket</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">Action</th>
+                        </>
                       ) : (
                         <>
                           <th className="px-4 py-3 text-left text-sm font-medium text-gray-500">ID</th>
@@ -677,19 +765,22 @@ export default function Template() {
                   <tbody>
                     {filteredData.length === 0 ? (
                       <tr>
-                        <td colSpan={activeMenu === "Mitra" ? 9 : 7} className="px-4 py-4 text-center text-sm text-gray-500">
+                        <td colSpan={activeMenu === "Mitra" ? 9 : activeMenu === "Transaksi" ? 11 : 7} className="px-4 py-4 text-center text-sm text-gray-500">
                           No data available
                         </td>
                       </tr>
                     ) : (
                       filteredData.map((item, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
+                        <tr
+                          key={index}
+                          className={`border-b hover:bg-gray-50 ${activeMenu === "Transaksi" && isOverdue(item.return_date, item.updated_at) ? "bg-red-100" : ""}`}
+                        >
                           <td className="px-4 py-4">
                             <input
                               type="checkbox"
                               className="rounded border-gray-300"
-                              checked={selectedRows.includes(item.id_barang || item.id_mitra)}
-                              onChange={() => toggleSelectRow(item.id_barang || item.id_mitra)}
+                              checked={selectedRows.includes(item.id_barang || item.id_mitra || item.id_transaksi)}
+                              onChange={() => toggleSelectRow(item.id_barang || item.id_mitra || item.id_transaksi)}
                             />
                           </td>
                           {activeMenu === "Mitra" ? (
@@ -718,6 +809,35 @@ export default function Template() {
                                 </button>
                               </td>
                             </>
+                          ) : activeMenu === "Transaksi" ? (
+                            <>
+                              <td className="px-4 py-4 text-sm text-gray-500">{index + 1}</td>
+                              <td className="px-4 py-4 text-sm text-gray-500">{item.id_transaksi}</td>
+                              <td className="px-4 py-4 text-sm">{item.mitra?.nama || "N/A"}</td>
+                              <td className="px-4 py-4 text-sm">{item.barang?.nama_barang || "N/A"}</td>
+                              <td className="px-4 py-4 text-sm">{item.jenis_transaksi}</td>
+                              <td className="px-4 py-4 text-sm">{item.jumlah}</td>
+                              <td className="px-4 py-4 text-sm">{item.tanggal_transaksi}</td>
+                              <td className="px-4 py-4 text-sm">{item.updated_at || "N/A"}</td>
+                              <td className="px-4 py-4 text-sm">{item.return_date || "N/A"}</td>
+                              <td className="px-4 py-4 text-sm">{item.keterangan || "N/A"}</td>
+                              <td className="px-4 py-4 flex space-x-2">
+                              <button
+    onClick={() => openTransaksiModal(null, item, "KELUAR")} // Open modal in "Edit" mode
+    className="text-gray-400 hover:text-gray-600"
+    title="Edit"
+  >
+    <Edit size={18} />
+  </button>
+                                <button
+                                  onClick={() => openTransaksiModal(null, item, "MASUK")}
+                                  className="text-green-400 hover:text-green-600"
+                                  title="Return"
+                                >
+                                  <ArrowLeft size={18} />
+                                </button>
+                              </td>
+                            </>
                           ) : (
                             <>
                               <td className="px-4 py-4 text-sm text-gray-500">{item.id_barang}</td>
@@ -734,14 +854,30 @@ export default function Template() {
                                   <Eye size={18} />
                                 </button>
                                 <button
-                                  onClick={() => openTransaksiModal(item)}
+                                  onClick={() => {
+                                    setFormData({
+                                      id_kategori: item.id_kategori,
+                                      nama_barang: item.nama_barang,
+                                      satuan: item.satuan,
+                                      stok_awal: item.stok_awal,
+                                      stok_akhir: item.stok_akhir,
+                                      keterangan: item.keterangan,
+                                      expired_date: item.expired_date,
+                                      id_mitra: "",
+                                    })
+                                    setIsAddModalOpen(true)
+                                  }}
                                   className="text-gray-400 hover:text-gray-600"
-                                  title="Borrow/Request"
+                                  title="Edit"
                                 >
-                                  <Package size={18} />
+                                  <Edit size={18} />
                                 </button>
-                                <button className="text-gray-400 hover:text-gray-600">
-                                  <ChevronDown size={18} />
+                                <button
+                                  onClick={() => handleDeleteBarang(item.id_barang)}
+                                  className="text-gray-400 hover:text-red-600"
+                                  title="Delete"
+                                >
+                                  <Trash size={18} />
                                 </button>
                               </td>
                             </>
@@ -759,15 +895,21 @@ export default function Template() {
                   Showing{" "}
                   {(activeMenu === "Mitra"
                     ? (mitraPage - 1) * 5 + 1
-                    : (currentPage - 1) * 5 + 1)}{" "}
+                    : activeMenu === "Transaksi"
+                      ? (transaksiPage - 1) * 5 + 1
+                      : (currentPage - 1) * 5 + 1)}{" "}
                   -{" "}
                   {(activeMenu === "Mitra"
                     ? (mitraPage - 1) * 5 + filteredData.length
-                    : (currentPage - 1) * 5 + filteredData.length)}{" "}
+                    : activeMenu === "Transaksi"
+                      ? (transaksiPage - 1) * 5 + filteredData.length
+                      : (currentPage - 1) * 5 + filteredData.length)}{" "}
                   of{" "}
                   {activeMenu === "Mitra"
                     ? mitras.length
-                    : barangs.length}
+                    : activeMenu === "Transaksi"
+                      ? transaksis.length
+                      : barangs.length}
                 </div>
                 <div className="flex items-center space-x-1">
                   <button
@@ -775,16 +917,22 @@ export default function Template() {
                       handlePageChange(
                         activeMenu === "Mitra"
                           ? mitraPage - 1
-                          : currentPage - 1,
+                          : activeMenu === "Transaksi"
+                            ? transaksiPage - 1
+                            : currentPage - 1,
                         activeMenu === "Mitra"
                           ? "mitra"
-                          : "barang"
+                          : activeMenu === "Transaksi"
+                            ? "transaksi"
+                            : "barang"
                       )
                     }
                     disabled={
                       activeMenu === "Mitra"
                         ? mitraPage === 1
-                        : currentPage === 1
+                        : activeMenu === "Transaksi"
+                          ? transaksiPage === 1
+                          : currentPage === 1
                     }
                     className="w-8 h-8 flex items-center justify-center rounded-full border disabled:opacity-50"
                   >
@@ -794,7 +942,9 @@ export default function Template() {
                     ...Array(
                       activeMenu === "Mitra"
                         ? mitraTotalPages
-                        : totalPages
+                        : activeMenu === "Transaksi"
+                          ? transaksiTotalPages
+                          : totalPages
                     ),
                   ].map((_, index) => {
                     const page_ = index + 1
@@ -806,16 +956,19 @@ export default function Template() {
                             index + 1,
                             activeMenu === "Mitra"
                               ? "mitra"
-                              : "barang"
+                              : activeMenu === "Transaksi"
+                                ? "transaksi"
+                                : "barang"
                           )
                         }
-                        className={`w-8 h-8 flex items-center justify-center rounded-full border ${
-                          (activeMenu === "Mitra"
+                        className={`w-8 h-8 flex items-center justify-center rounded-full border ${(activeMenu === "Mitra"
                             ? mitraPage
-                            : currentPage) === index + 1
+                            : activeMenu === "Transaksi"
+                              ? transaksiPage
+                              : currentPage) === index + 1
                             ? "bg-blue-600 text-white"
                             : "hover:bg-gray-100"
-                        }`}
+                          }`}
                       >
                         {index + 1}
                       </button>
@@ -826,16 +979,22 @@ export default function Template() {
                       handlePageChange(
                         activeMenu === "Mitra"
                           ? mitraPage + 1
-                          : currentPage + 1,
+                          : activeMenu === "Transaksi"
+                            ? transaksiPage + 1
+                            : currentPage + 1,
                         activeMenu === "Mitra"
                           ? "mitra"
-                          : "barang"
+                          : activeMenu === "Transaksi"
+                            ? "transaksi"
+                            : "barang"
                       )
                     }
                     disabled={
                       activeMenu === "Mitra"
                         ? mitraPage === mitraTotalPages
-                        : currentPage === totalPages
+                        : activeMenu === "Transaksi"
+                          ? transaksiPage === transaksiTotalPages
+                          : currentPage === totalPages
                     }
                     className="w-8 h-8 flex items-center justify-center rounded-full border disabled:opacity-50"
                   >
@@ -848,348 +1007,414 @@ export default function Template() {
         </div>
       </div>
 
-      {/* Modal for Adding Barang */}
+      {/* Modal for Adding/Editing Barang */}
       {isAddModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
-      <div className="p-4 md:p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium">Add New Item</h2>
-          <button onClick={closeAddModal}>
-            <X size={20} className="text-gray-500 hover:text-gray-700" />
-          </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="p-4 md:p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium">{formData.id_barang ? "Edit Item" : "Add New Item"}</h2>
+                <button onClick={closeAddModal}>
+                  <X size={20} className="text-gray-500 hover:text-gray-700" />
+                </button>
+              </div>
+              <form onSubmit={handleAddSubmit}>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Category</label>
+                  <input
+                    type="text"
+                    value={sectionTitle}
+                    disabled
+                    className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
+                  />
+                  <input type="hidden" name="id_kategori" value={formData.id_kategori} />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Mitra</label>
+                  <select
+                    name="id_mitra"
+                    value={formData.id_mitra}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  >
+                    <option value="">Select Mitra</option>
+                    {mitras.map((mitra) => (
+                      <option key={mitra.id_mitra} value={mitra.id_mitra}>
+                        {mitra.nama} ({mitra.perusahaan})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Item Name</label>
+                  <input
+                    type="text"
+                    name="nama_barang"
+                    value={formData.nama_barang}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Unit</label>
+                  <input
+                    type="text"
+                    name="satuan"
+                    value={formData.satuan}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Initial Stock</label>
+                  <input
+                    type="number"
+                    name="stok_awal"
+                    value={formData.stok_awal}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                    min="0"
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Final Stock</label>
+                  <input
+                    type="number"
+                    name="stok_akhir"
+                    value={formData.stok_akhir}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                    min="0"
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    name="keterangan"
+                    value={formData.keterangan}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Expired Date</label>
+                  <input
+                    type="date"
+                    name="expired_date"
+                    value={formData.expired_date}
+                    onChange={handleAddInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={closeAddModal}
+                    className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 border rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
-        <form onSubmit={handleAddSubmit}>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Category</label>
-            <input
-              type="text"
-              value={sectionTitle}
-              disabled
-              className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
-            />
-            <input type="hidden" name="id_kategori" value={formData.id_kategori} />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Mitra</label>
-            <select
-              name="id_mitra"
-              value={formData.id_mitra}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            >
-              <option value="">Select Mitra</option>
-              {mitras.map((mitra) => (
-                <option key={mitra.id_mitra} value={mitra.id_mitra}>
-                  {mitra.nama} ({mitra.perusahaan})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Item Name</label>
-            <input
-              type="text"
-              name="nama_barang"
-              value={formData.nama_barang}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Unit</label>
-            <input
-              type="text"
-              name="satuan"
-              value={formData.satuan}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Initial Stock</label>
-            <input
-              type="number"
-              name="stok_awal"
-              value={formData.stok_awal}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-              min="0"
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Final Stock</label>
-            <input
-              type="number"
-              name="stok_akhir"
-              value={formData.stok_akhir}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-              min="0"
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <textarea
-              name="keterangan"
-              value={formData.keterangan}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Expired Date</label>
-            <input
-              type="date"
-              name="expired_date"
-              value={formData.expired_date}
-              onChange={handleAddInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            <button
-              type="button"
-              onClick={closeAddModal}
-              className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
-      {/* Modal for Adding Transaksi */}
-      {isTransaksiModalOpen && selectedBarang && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
-      <div className="p-4 md:p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium">Borrow/Request Item</h2>
-          <button onClick={closeTransaksiModal}>
-            <X size={20} className="text-gray-500 hover:text-gray-700" />
-          </button>
+      {/* Modal for Adding/Returning Transaksi */}
+      {isTransaksiModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="p-4 md:p-6">
+            <div className="flex justify-between items-center mb-4">
+  <h2 className="text-lg font-medium">
+    {transaksiData.id_transaksi && transaksiData.jenis_transaksi === "KELUAR"
+      ? "Edit Transaction"
+      : transaksiData.jenis_transaksi === "KELUAR"
+      ? "Borrow Item"
+      : "Return Item"}
+  </h2>
+  <button onClick={closeTransaksiModal}>
+    <X size={20} className="text-gray-500 hover:text-gray-700" />
+  </button>
+</div>
+              <form onSubmit={handleTransaksiSubmit}>
+                {transaksiData.jenis_transaksi === "KELUAR" ? (
+                  <>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Item Name</label>
+                      <select
+                        name="id_barang"
+                        value={transaksiData.id_barang}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        required
+                      >
+                        <option value="">Select Item</option>
+                        {barangs.map(barang => (
+                          <option key={barang.id_barang} value={barang.id_barang}>
+                            {barang.nama_barang}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Mitra</label>
+                      <select
+                        name="id_mitra"
+                        value={transaksiData.id_mitra}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        required
+                      >
+                        <option value="">Select Mitra</option>
+                        {mitras.map(mitra => (
+                          <option key={mitra.id_mitra} value={mitra.id_mitra}>
+                            {mitra.nama}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mb-2 md:mb-4">
+  <label className="block text-sm font-medium text-gray-700">Quantity</label>
+  <input
+    type="number"
+    name="jumlah"
+    value={transaksiData.jumlah}
+    onChange={handleTransaksiInputChange}
+    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+    required
+    min="1"
+    max={barangs.find(b => parseInt(b.id_barang) === parseInt(transaksiData.id_barang))?.stok_akhir}
+  />
+  {transaksiData.id_barang && (
+    <p className="text-sm text-gray-500 mt-1">
+      Available: {barangs.find(b => parseInt(b.id_barang) === parseInt(transaksiData.id_barang))?.stok_akhir || 0} {barangs.find(b => parseInt(b.id_barang) === parseInt(transaksiData.id_barang))?.satuan || ""}
+    </p>
+  )}
+</div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Transaction Date</label>
+                      <input
+                        type="date"
+                        name="tanggal_transaksi"
+                        value={transaksiData.tanggal_transaksi}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        required
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Max Return Date (Optional)</label>
+                      <input
+                        type="date"
+                        name="return_date"
+                        value={transaksiData.return_date}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        min={transaksiData.tanggal_transaksi}
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Description</label>
+                      <textarea
+                        name="keterangan"
+                        value={transaksiData.keterangan}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Item Name</label>
+                      <input
+                        type="text"
+                        value={barangs.find(b => b.id_barang === transaksiData.id_barang)?.nama_barang || "N/A"}
+                        disabled
+                        className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Mitra</label>
+                      <input
+                        type="text"
+                        value={mitras.find(m => m.id_mitra === transaksiData.id_mitra)?.nama || "N/A"}
+                        disabled
+                        className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Quantity</label>
+                      <input
+                        type="number"
+                        name="jumlah"
+                        value={transaksiData.jumlah}
+                        disabled
+                        className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Transaction Date</label>
+                      <input
+                        type="date"
+                        name="tanggal_transaksi"
+                        value={transaksiData.tanggal_transaksi}
+                        disabled
+                        className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Return Date</label>
+                      <input
+                        type="date"
+                        name="return_date"
+                        value={transaksiData.return_date}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        required
+                      />
+                    </div>
+                    <div className="mb-2 md:mb-4">
+                      <label className="block text-sm font-medium text-gray-700">Description</label>
+                      <textarea
+                        name="keterangan"
+                        value={transaksiData.keterangan}
+                        onChange={handleTransaksiInputChange}
+                        className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={closeTransaksiModal}
+                    className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 border rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Submit
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
-        <form onSubmit={handleTransaksiSubmit}>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Item Name</label>
-            <input
-              type="text"
-              value={selectedBarang.nama_barang}
-              disabled
-              className="mt-1 block w-full border rounded-md p-2 bg-gray-100"
-            />
-            <input type="hidden" name="id_barang" value={transaksiData.id_barang} />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Mitra</label>
-            <select
-              name="id_mitra"
-              value={transaksiData.id_mitra}
-              onChange={handleTransaksiInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            >
-              <option value="">Select Mitra</option>
-              {mitras.map(mitra => (
-                <option key={mitra.id_mitra} value={mitra.id_mitra}>
-                  {mitra.nama}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Transaction Type</label>
-            <select
-              name="jenis_transaksi"
-              value={transaksiData.jenis_transaksi}
-              onChange={handleTransaksiInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            >
-              <option value="KELUAR">Keluar (Borrow)</option>
-              <option value="MASUK">Masuk (Return)</option>
-            </select>
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Quantity</label>
-            <input
-              type="number"
-              name="jumlah"
-              value={transaksiData.jumlah}
-              onChange={handleTransaksiInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-              min="1"
-              max={selectedBarang.stok_akhir}
-            />
-            <p className="text-sm text-gray-500 mt-1">Available: {selectedBarang.stok_akhir} {selectedBarang.satuan}</p>
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Transaction Date</label>
-            <input
-              type="date"
-              name="tanggal_transaksi"
-              value={transaksiData.tanggal_transaksi}
-              onChange={handleTransaksiInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">
-              Return Date {selectedBarang.id_kategori === 2 ? "(Required)" : "(Optional)"}
-            </label>
-            <input
-              type="date"
-              name="return_date"
-              value={transaksiData.return_date}
-              onChange={handleTransaksiInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required={selectedBarang.id_kategori === 2}
-              min={transaksiData.tanggal_transaksi}
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <textarea
-              name="keterangan"
-              value={transaksiData.keterangan}
-              onChange={handleTransaksiInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            <button
-              type="button"
-              onClick={closeTransaksiModal}
-              className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Submit
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       {/* Modal for Adding/Editing Mitra */}
       {isMitraModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
-      <div className="p-4 md:p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-medium">{mitraData.id_mitra ? "Edit Mitra" : "Add New Mitra"}</h2>
-          <button onClick={closeMitraModal}>
-            <X size={20} className="text-gray-500 hover:text-gray-700" />
-          </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="p-4 md:p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium">{mitraData.id_mitra ? "Edit Mitra" : "Add New Mitra"}</h2>
+                <button onClick={closeMitraModal}>
+                  <X size={20} className="text-gray-500 hover:text-gray-700" />
+                </button>
+              </div>
+              <form onSubmit={handleMitraSubmit}>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Name</label>
+                  <input
+                    type="text"
+                    name="nama"
+                    value={mitraData.nama}
+                    onChange={handleMitraInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+                  <input
+                    type="text"
+                    name="no_hp"
+                    value={mitraData.no_hp}
+                    onChange={handleMitraInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={mitraData.email}
+                    onChange={handleMitraInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Address</label>
+                  <textarea
+                    name="alamat"
+                    value={mitraData.alamat}
+                    onChange={handleMitraInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Company</label>
+                  <input
+                    type="text"
+                    name="perusahaan"
+                    value={mitraData.perusahaan}
+                    onChange={handleMitraInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    required
+                  />
+                </div>
+                <div className="mb-2 md:mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Date (Optional)</label>
+                  <input
+                    type="date"
+                    name="at"
+                    value={mitraData.at}
+                    onChange={handleMitraInputChange}
+                    className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <button
+                    type="button"
+                    onClick={closeMitraModal}
+                    className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 border rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
-        <form onSubmit={handleMitraSubmit}>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Name</label>
-            <input
-              type="text"
-              name="nama"
-              value={mitraData.nama}
-              onChange={handleMitraInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-            <input
-              type="text"
-              name="no_hp"
-              value={mitraData.no_hp}
-              onChange={handleMitraInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={mitraData.email}
-              onChange={handleMitraInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Address</label>
-            <textarea
-              name="alamat"
-              value={mitraData.alamat}
-              onChange={handleMitraInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Company</label>
-            <input
-              type="text"
-              name="perusahaan"
-              value={mitraData.perusahaan}
-              onChange={handleMitraInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-              required
-            />
-          </div>
-          <div className="mb-2 md:mb-4">
-            <label className="block text-sm font-medium text-gray-700">Date (Optional)</label>
-            <input
-              type="date"
-              name="at"
-              value={mitraData.at}
-              onChange={handleMitraInputChange}
-              className="mt-1 block w-full border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            <button
-              type="button"
-              onClick={closeMitraModal}
-              className="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 border rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   )
 }
